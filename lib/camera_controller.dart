@@ -1,5 +1,5 @@
+import 'package:camera_widget/face_detection_service.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:camera/camera.dart';
@@ -9,6 +9,10 @@ import 'permission_manager.dart';
 class CameraPageController extends ChangeNotifier {
   final PermissionManager permissionManager;
   final CameraService cameraService;
+  final FaceDetectionService faceDetectionService;
+
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
 
   bool _isInitialized = false;
   bool get isInitialized => _isInitialized;
@@ -18,7 +22,6 @@ class CameraPageController extends ChangeNotifier {
 
   CameraController? get cameraController => cameraService.cameraController;
 
-  DateTime _lastDetectionTime = DateTime.now();
   final Duration detectionInterval = const Duration(milliseconds: 200);
 
   final options = FaceDetectorOptions(
@@ -29,20 +32,19 @@ class CameraPageController extends ChangeNotifier {
     minFaceSize: 0.15,
   );
 
-  List<Face> _faces = [];
-  List<Face> get faces => _faces;
-
-  late FaceDetector _faceDetector;
+  List<Face> get faces => faceDetectionService.faces;
 
   CameraPageController({
     required this.permissionManager,
     required this.cameraService,
-  }) {
-    _faceDetector = FaceDetector(options: options);
-  }
+    required this.faceDetectionService,
+  });
 
   Future<bool> initialize() async {
     try {
+      _isLoading = true;
+      notifyListeners();
+
       if (cameraService.cameraController != null) {
         await cameraService.cameraController?.dispose();
         cameraService.resetCameraController();
@@ -57,17 +59,20 @@ class CameraPageController extends ChangeNotifier {
 
       if (!granted) {
         _isInitialized = false;
+        _isLoading = false;
         notifyListeners();
         return false;
       }
 
       await cameraWithMLKit();
+      _isLoading = false;
       notifyListeners();
       return _isInitialized;
     } catch (e) {
       debugPrint('Error initializing camera controller: $e');
       _isInitialized = false;
       _isCameraGranted = false;
+      _isLoading = false;
       notifyListeners();
       return false;
     }
@@ -82,15 +87,21 @@ class CameraPageController extends ChangeNotifier {
       );
 
       if (_isCameraGranted) {
+        _isLoading = true;
+        notifyListeners();
         await cameraWithMLKit();
+        _isLoading = false;
+        notifyListeners();
       } else {
         _isInitialized = false;
+        _isLoading = false;
+        notifyListeners();
       }
-      notifyListeners();
     } catch (e) {
       debugPrint('Error checking permission and initializing: $e');
       _isInitialized = false;
       _isCameraGranted = false;
+      _isLoading = false;
       notifyListeners();
     }
   }
@@ -99,34 +110,16 @@ class CameraPageController extends ChangeNotifier {
     try {
       _isInitialized = await cameraService.initialize(
         onFrameAvailable: (inputImage) async {
-          final now = DateTime.now();
-          if (now.difference(_lastDetectionTime) < detectionInterval) {
-            return;
-          }
-          _lastDetectionTime = now;
-
-          final newFaces = await _faceDetector.processImage(inputImage);
-          setFaces(newFaces);
-
-          for (Face face in _faces) {
-            debugPrint('Face detected: ${face.boundingBox}');
-            debugPrint('Smiling probability: ${face.smilingProbability}');
-            debugPrint('Tracking ID: ${face.trackingId}');
-          }
+          await faceDetectionService.processImage(inputImage);
+          _isLoading = false;
+          notifyListeners();
         },
       );
       debugPrint('cameraWithMLKit - isInitialized: $_isInitialized');
     } catch (e) {
       debugPrint('Error in cameraWithMLKit: $e');
       _isInitialized = false;
-      notifyListeners();
-    }
-  }
-
-  void setFaces(List<Face> newFaces) {
-    final hasChanged = !listEquals(_faces, newFaces);
-    if (hasChanged) {
-      _faces = newFaces;
+      _isLoading = false;
       notifyListeners();
     }
   }
@@ -156,7 +149,7 @@ class CameraPageController extends ChangeNotifier {
   @override
   void dispose() {
     cameraService.dispose();
-    _faceDetector.close();
+    faceDetectionService.dispose();
     _isInitialized = false;
     super.dispose();
   }

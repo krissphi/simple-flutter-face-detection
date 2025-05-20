@@ -23,7 +23,9 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    controller.initialize();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.initialize();
+    });
   }
 
   @override
@@ -52,50 +54,45 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
             duration: const Duration(milliseconds: 300),
             child:
                 !kIsWeb && (Platform.isAndroid || Platform.isIOS)
-                    ? !controller.isCameraGranted
+                    ? !controller.isCameraGranted && !controller.isLoading
                         ? const CameraPermissionPlaceholder()
-                        : !controller.isInitialized ||
+                        : controller.isLoading ||
+                            !controller.isInitialized ||
                             controller.cameraController == null
-                        ? const Center(child: CircularProgressIndicator())
-                        : LayoutBuilder(
-                          builder: (context, constraints) {
-                            final cameraController =
-                                controller.cameraController!;
-                            final cameraSize =
-                                cameraController.value.previewSize;
-                            if (cameraSize == null) {
-                              return const SizedBox();
-                            }
-
-                            return Stack(
-                              children: [
-                                RepaintBoundary(
-                                  child: CameraPreviewWidget(
-                                    cameraController: cameraController,
-                                  ),
-                                ),
-                                RepaintBoundary(
-                                  child: FacePainterWidget(
-                                    faces: controller.faces,
-                                    imageSize: cameraSize,
-                                    widgetSize: Size(
-                                      constraints.maxWidth,
-                                      constraints.maxHeight,
-                                    ),
-                                    lensDirection:
-                                        cameraController
-                                            .description
-                                            .lensDirection,
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        )
+                        ? Container(color: Colors.black)
+                        : _buildCameraPreview()
                     : const Center(
                       child: Text("Camera not supported on this platform"),
                     ),
           ),
+        );
+      },
+    );
+  }
+
+  Widget _buildCameraPreview() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cameraController = controller.cameraController!;
+        final cameraSize = cameraController.value.previewSize;
+        if (cameraSize == null) {
+          return const SizedBox();
+        }
+
+        return Stack(
+          children: [
+            RepaintBoundary(
+              child: CameraPreviewWidget(cameraController: cameraController),
+            ),
+            RepaintBoundary(
+              child: FacePainterWidget(
+                faces: controller.faces,
+                imageSize: cameraSize,
+                widgetSize: Size(constraints.maxWidth, constraints.maxHeight),
+                lensDirection: cameraController.description.lensDirection,
+              ),
+            ),
+          ],
         );
       },
     );

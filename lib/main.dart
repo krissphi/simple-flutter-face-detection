@@ -1,4 +1,5 @@
 import 'package:camera_widget/camera_service.dart';
+import 'package:camera_widget/face_detection_service.dart';
 import 'package:camera_widget/permission_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -27,6 +28,7 @@ class MainApp extends StatelessWidget {
             (_) => CameraPageController(
               permissionManager: PermissionManager(),
               cameraService: CameraService(),
+              faceDetectionService: FaceDetectionService(),
             ),
         child: const Scaffold(body: CameraPage()),
       ),
