@@ -1,0 +1,47 @@
+name: Flutter
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout source code
+      - uses: actions/checkout@v4
+
+      # 2. Setup Flutter SDK
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 'stable' # Bisa diganti ke '3.19.0' misalnya
+
+      # 3. Cache Flutter dependencies
+      - name: Cache Flutter dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.pub-cache
+            .dart_tool
+          key: ${{ runner.os }}-flutter-${{ hashFiles('**/pubspec.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-flutter-
+
+      # 4. Install dependencies
+      - name: Install dependencies
+        run: flutter pub get
+
+      # 5. Run analysis
+      - name: Analyze project source
+        run: flutter analyze
+
+      # 6. Run unit tests
+      - name: Run tests
+        run: flutter test
+
+      # 7. Show Flutter environment info (useful for debugging)
+      - name: Flutter doctor
+        run: flutter doctor -v
