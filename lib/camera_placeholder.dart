@@ -21,7 +21,6 @@ class CameraPermissionPlaceholder extends StatelessWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            //Text button
             TextButton(
               onPressed: () {
                 openAppSettings();

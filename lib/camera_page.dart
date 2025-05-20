@@ -52,22 +52,33 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         return Scaffold(
           body: AnimatedSwitcher(
             duration: const Duration(milliseconds: 300),
-            child:
-                !kIsWeb && (Platform.isAndroid || Platform.isIOS)
-                    ? !controller.isCameraGranted && !controller.isLoading
-                        ? const CameraPermissionPlaceholder()
-                        : controller.isLoading ||
-                            !controller.isInitialized ||
-                            controller.cameraController == null
-                        ? Container(color: Colors.black)
-                        : _buildCameraPreview()
-                    : const Center(
-                      child: Text("Camera not supported on this platform"),
-                    ),
+            child: _buildWidget(controller),
           ),
         );
       },
     );
+  }
+
+  Widget _buildWidget(CameraPageController controller) {
+    if (!_isCameraSupported()) {
+      return const Center(child: Text("Camera not supported on this platform"));
+    }
+
+    if (!controller.isCameraGranted && !controller.isLoading) {
+      return const CameraPermissionPlaceholder();
+    }
+
+    if (controller.isLoading ||
+        !controller.isInitialized ||
+        controller.cameraController == null) {
+      return Container(color: Colors.black);
+    }
+
+    return _buildCameraPreview();
+  }
+
+  bool _isCameraSupported() {
+    return kIsWeb ? false : (Platform.isAndroid || Platform.isIOS);
   }
 
   Widget _buildCameraPreview() {
@@ -92,9 +103,45 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                 lensDirection: cameraController.description.lensDirection,
               ),
             ),
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: RepaintBoundary(child: _buildCameraFeature()),
+            ),
           ],
         );
       },
+    );
+  }
+
+  Widget _buildCameraFeature() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      color: Colors.white,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              ElevatedButton(
+                onPressed: () => controller.setAutoCaptureIn3Seconds(),
+                child: const Icon(Icons.timer),
+              ),
+              ElevatedButton(
+                onPressed: () => controller.takePicture(),
+                child: const Icon(Icons.camera),
+              ),
+              ElevatedButton(
+                onPressed: () => controller.setAutoCaptureInBoundaryShape(),
+                child: const Icon(Icons.square_foot),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

@@ -22,16 +22,6 @@ class CameraPageController extends ChangeNotifier {
 
   CameraController? get cameraController => cameraService.cameraController;
 
-  final Duration detectionInterval = const Duration(milliseconds: 200);
-
-  final options = FaceDetectorOptions(
-    enableClassification: false,
-    enableTracking: true,
-    enableLandmarks: false,
-    performanceMode: FaceDetectorMode.fast,
-    minFaceSize: 0.15,
-  );
-
   List<Face> get faces => faceDetectionService.faces;
 
   CameraPageController({
@@ -39,6 +29,20 @@ class CameraPageController extends ChangeNotifier {
     required this.cameraService,
     required this.faceDetectionService,
   });
+
+  void takePicture() {
+    
+    notifyListeners();
+  }
+
+  void setAutoCaptureIn3Seconds() {
+  
+    notifyListeners();
+  }
+
+  void setAutoCaptureInBoundaryShape() {
+    notifyListeners();
+  }
 
   Future<bool> initialize() async {
     try {
@@ -50,9 +54,7 @@ class CameraPageController extends ChangeNotifier {
         cameraService.resetCameraController();
       }
 
-      final granted = await permissionManager.requestPermission(
-        permission: Permission.camera,
-      );
+      final granted = await permissionManager.requestCameraPermission();
 
       _isCameraGranted = granted;
       debugPrint('initialize - Permission granted: $granted');
@@ -115,7 +117,7 @@ class CameraPageController extends ChangeNotifier {
           notifyListeners();
         },
       );
-      debugPrint('cameraWithMLKit - isInitialized: $_isInitialized');
+      notifyListeners();
     } catch (e) {
       debugPrint('Error in cameraWithMLKit: $e');
       _isInitialized = false;

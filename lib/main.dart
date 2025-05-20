@@ -1,6 +1,7 @@
 import 'package:camera_widget/camera_service.dart';
 import 'package:camera_widget/face_detection_service.dart';
 import 'package:camera_widget/permission_manager.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
@@ -13,7 +14,9 @@ void main() {
       'FlutterError: ${details.exceptionAsString()}\n${details.stack}',
     );
   };
-  debugRepaintRainbowEnabled = true;
+   if (kDebugMode) {
+    debugRepaintRainbowEnabled = true;
+  }
   runApp(const MainApp());
 }
 
@@ -23,6 +26,7 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       home: ChangeNotifierProvider(
         create:
             (_) => CameraPageController(

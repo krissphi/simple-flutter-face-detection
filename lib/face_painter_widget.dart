@@ -20,12 +20,7 @@ class FacePainterWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: FacePainter(
-        faces,
-        imageSize,
-        widgetSize,
-        lensDirection,
-      ),
+      painter: FacePainter(faces, imageSize, widgetSize, lensDirection),
     );
   }
 }

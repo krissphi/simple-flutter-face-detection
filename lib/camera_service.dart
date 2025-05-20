@@ -55,7 +55,9 @@ class CameraService {
 
   void startStreaming(Function(InputImage) onImageAvailable) {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
-      debugPrint('Cannot start streaming: CameraController is null or not initialized');
+      debugPrint(
+        'Cannot start streaming: CameraController is null or not initialized',
+      );
       return;
     }
 
@@ -72,6 +74,29 @@ class CameraService {
   }
 
   InputImage? _inputImageFromCameraImage(CameraImage image) {
+    final rotation = _calculateInputImageRotation();
+    if (rotation == null) return null;
+
+    final format = InputImageFormatValue.fromRawValue(image.format.raw);
+    if (!_isValidImageFormat(format)) {
+      return null;
+    }
+
+    if (image.planes.length != 1) return null;
+    final plane = image.planes.first;
+
+    return InputImage.fromBytes(
+      bytes: plane.bytes,
+      metadata: InputImageMetadata(
+        size: Size(image.width.toDouble(), image.height.toDouble()),
+        rotation: rotation,
+        format: format!,
+        bytesPerRow: plane.bytesPerRow,
+      ),
+    );
+  }
+
+  InputImageRotation? _calculateInputImageRotation() {
     final orientations = {
       DeviceOrientation.portraitUp: 0,
       DeviceOrientation.landscapeLeft: 90,
@@ -81,10 +106,9 @@ class CameraService {
 
     final camera = _cameraController!.description;
     final sensorOrientation = camera.sensorOrientation;
-    InputImageRotation? rotation;
 
     if (Platform.isIOS) {
-      rotation = InputImageRotationValue.fromRawValue(sensorOrientation);
+      return InputImageRotationValue.fromRawValue(sensorOrientation);
     } else if (Platform.isAndroid) {
       var rotationCompensation =
           orientations[_cameraController!.value.deviceOrientation];
@@ -97,46 +121,25 @@ class CameraService {
             (sensorOrientation - rotationCompensation + 360) % 360;
       }
 
-      rotation = InputImageRotationValue.fromRawValue(rotationCompensation);
-    } 
-
-    if (rotation == null) return null;
-
-    final format = InputImageFormatValue.fromRawValue(image.format.raw);
-    if (format == null ||
-        (Platform.isAndroid && format != InputImageFormat.nv21) ||
-        (Platform.isIOS && format != InputImageFormat.bgra8888)) {
-      return null;
+      return InputImageRotationValue.fromRawValue(rotationCompensation);
     }
 
-    if (image.planes.length != 1) return null;
-    final plane = image.planes.first;
+    return null;
+  }
 
-    return InputImage.fromBytes(
-      bytes: plane.bytes,
-      metadata: InputImageMetadata(
-        size: Size(image.width.toDouble(), image.height.toDouble()),
-        rotation: rotation,
-        format: format,
-        bytesPerRow: plane.bytesPerRow,
-      ),
-    );
+  bool _isValidImageFormat(InputImageFormat? format) {
+    if (format == null) return false;
+    if (Platform.isAndroid && format != InputImageFormat.nv21) {
+      return false;
+    }
+    if (Platform.isIOS && format != InputImageFormat.bgra8888) {
+      return false;
+    }
+    return true;
   }
 
   void resetCameraController() {
     _cameraController = null;
-  }
-
-  Future<XFile?> takePicture() async {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) {
-      return null;
-    }
-    try {
-      return await _cameraController!.takePicture();
-    } catch (e) {
-      debugPrint('Error taking picture: $e');
-      return null;
-    }
   }
 
   void dispose() {
