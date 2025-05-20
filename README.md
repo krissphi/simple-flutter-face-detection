@@ -1,3 +1,1 @@
-# camera_widget
-
-A new Flutter project.
+# simple-flutter-face-detection
