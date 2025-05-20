@@ -138,6 +138,24 @@ class CameraService {
     return true;
   }
 
+    Future<XFile?> capturePhoto() async {
+    final CameraController? cameraController = _cameraController;
+
+    if (cameraController!.value.isTakingPicture) {
+      return null;
+    }
+    try {
+      await cameraController.setFlashMode(FlashMode.off); //optional
+      XFile file = await cameraController.takePicture();
+      debugPrint('Photo taken: ${file.path}');
+      return file;
+    } on CameraException catch (e) {
+      debugPrint('Error occured while taking picture: $e');
+      return null;
+    }
+  }
+
+
   void resetCameraController() {
     _cameraController = null;
   }

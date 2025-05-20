@@ -1,5 +1,7 @@
 import 'package:camera_widget/face_detection_service.dart';
+import 'package:camera_widget/image_preview.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:camera/camera.dart';
@@ -20,6 +22,12 @@ class CameraPageController extends ChangeNotifier {
   bool _isCameraGranted = false;
   bool get isCameraGranted => _isCameraGranted;
 
+  bool _isAutoCapture = false;
+  bool get isAutoCapture => _isAutoCapture;
+
+  bool _isAutoCaptureInBoundaryShape = false;
+  bool get isAutoCaptureInBoundaryShape => _isAutoCaptureInBoundaryShape;
+
   CameraController? get cameraController => cameraService.cameraController;
 
   List<Face> get faces => faceDetectionService.faces;
@@ -30,17 +38,54 @@ class CameraPageController extends ChangeNotifier {
     required this.faceDetectionService,
   });
 
-  void takePicture() {
-    
+  Future<void> onTakePhotoPressed(BuildContext context) async {
+    bool isMounted = context.mounted;
+    await cameraService.cameraController?.stopImageStream();
+    final xFile = await cameraService.capturePhoto();
+
+    if (!isMounted || !context.mounted) {
+      debugPrint('Context is not mounted, skipping navigation');
+      if (_isCameraGranted) {
+        await cameraWithMLKit();
+      }
+      return;
+    }
+
+    if (xFile != null && xFile.path.isNotEmpty) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (context) => ImagePreview(imagePath: xFile.path),
+        ),
+      );
+      if (_isCameraGranted && context.mounted) {
+        await cameraWithMLKit();
+      }
+    } else {
+      if (_isCameraGranted && context.mounted) {
+        await cameraWithMLKit();
+      }
+    }
+  }
+
+  void toggleAutoCapture(BuildContext context) {
+    _isAutoCapture = !_isAutoCapture;
+    faceDetectionService.setAutoCapture(
+      _isAutoCapture,
+      context,
+      (BuildContext? _) => onTakePhotoPressed(context),
+      _isAutoCaptureInBoundaryShape,
+    );
     notifyListeners();
   }
 
-  void setAutoCaptureIn3Seconds() {
-  
-    notifyListeners();
-  }
-
-  void setAutoCaptureInBoundaryShape() {
+  void toggleAutoCaptureInBoundaryShape() { // Updated method
+    _isAutoCaptureInBoundaryShape = !_isAutoCaptureInBoundaryShape;
+    faceDetectionService.setAutoCapture(
+      _isAutoCapture,
+      faceDetectionService.context,
+      faceDetectionService.onAutoCapture,
+      _isAutoCaptureInBoundaryShape,
+    );
     notifyListeners();
   }
 
@@ -89,14 +134,10 @@ class CameraPageController extends ChangeNotifier {
       );
 
       if (_isCameraGranted) {
-        _isLoading = true;
-        notifyListeners();
         await cameraWithMLKit();
-        _isLoading = false;
         notifyListeners();
       } else {
         _isInitialized = false;
-        _isLoading = false;
         notifyListeners();
       }
     } catch (e) {
@@ -142,6 +183,9 @@ class CameraPageController extends ChangeNotifier {
       await cameraService.cameraController?.dispose();
       cameraService.resetCameraController();
       _isInitialized = false;
+      _isAutoCapture = false;
+      _isAutoCaptureInBoundaryShape = false;
+      faceDetectionService.setAutoCapture(false, null, null, false);
       notifyListeners();
     } catch (e) {
       debugPrint('Error disposing camera: $e');

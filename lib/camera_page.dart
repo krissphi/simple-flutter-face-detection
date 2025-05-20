@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:camera_widget/camera_preview.dart';
+import 'package:camera_widget/face_detection_service.dart';
 import 'package:camera_widget/face_painter_widget.dart';
+import 'package:camera_widget/image_preview.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -60,6 +62,12 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   }
 
   Widget _buildWidget(CameraPageController controller) {
+    debugPrint(
+      controller.isAutoCapture
+          ? 'Auto capture in 3 seconds enabled'
+          : 'Auto capture in 3 seconds disabled',
+    );
+
     if (!_isCameraSupported()) {
       return const Center(child: Text("Camera not supported on this platform"));
     }
@@ -104,11 +112,60 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
               ),
             ),
             Positioned(
+              top: 16,
+              left: 0,
+              right: 0,
+              child: RepaintBoundary(child: _buildAutoCaptureText()),
+            ),
+            Positioned(
               bottom: 0,
               left: 0,
               right: 0,
               child: RepaintBoundary(child: _buildCameraFeature()),
             ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildAutoCaptureText() {
+    return Consumer<FaceDetectionService>(
+      builder: (context, faceDetectionService, child) {
+        debugPrint(faceDetectionService.countdownSeconds.toString());
+        debugPrint(faceDetectionService.faces.toString());
+        debugPrint(faceDetectionService.faces.isNotEmpty.toString());
+        if (!controller.isAutoCapture) {
+          return const SizedBox.shrink();
+        }
+        return Column(
+          children: [
+            Text(
+              faceDetectionService.faces.isNotEmpty
+                  ? 'Wajah Terdeteksi'
+                  : 'Wajah Tidak Terdeteksi',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                backgroundColor: Colors.black54,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            if (faceDetectionService.countdownSeconds != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Jangan Bergerak: ${faceDetectionService.countdownSeconds}s',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    backgroundColor: Colors.black54,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
           ],
         );
       },
@@ -127,16 +184,20 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               ElevatedButton(
-                onPressed: () => controller.setAutoCaptureIn3Seconds(),
-                child: const Icon(Icons.timer),
+                onPressed: () => controller.toggleAutoCapture(context),
+                child: Icon(
+                  controller.isAutoCapture ? Icons.timer : Icons.timer_off,
+                ),
               ),
               ElevatedButton(
-                onPressed: () => controller.takePicture(),
+                onPressed: () => controller.onTakePhotoPressed(context),
                 child: const Icon(Icons.camera),
               ),
               ElevatedButton(
-                onPressed: () => controller.setAutoCaptureInBoundaryShape(),
-                child: const Icon(Icons.square_foot),
+                onPressed: () => controller.toggleAutoCaptureInBoundaryShape(),
+                child: Icon(
+                  controller.isAutoCaptureInBoundaryShape ? Icons.square_foot_outlined : Icons.square_foot,
+                ),
               ),
             ],
           ),

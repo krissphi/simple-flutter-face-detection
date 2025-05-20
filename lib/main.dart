@@ -14,7 +14,7 @@ void main() {
       'FlutterError: ${details.exceptionAsString()}\n${details.stack}',
     );
   };
-   if (kDebugMode) {
+  if (kDebugMode) {
     debugRepaintRainbowEnabled = true;
   }
   runApp(const MainApp());
@@ -34,7 +34,23 @@ class MainApp extends StatelessWidget {
               cameraService: CameraService(),
               faceDetectionService: FaceDetectionService(),
             ),
-        child: const Scaffold(body: CameraPage()),
+        child: Builder(
+          builder: (context) {
+            final controller = Provider.of<CameraPageController>(
+              context,
+              listen: false,
+            );
+            return MultiProvider(
+              providers: [
+                ChangeNotifierProvider.value(value: controller),
+                ChangeNotifierProvider.value(
+                  value: controller.faceDetectionService,
+                ),
+              ],
+              child: const Scaffold(body: CameraPage()),
+            );
+          },
+        ),
       ),
     );
   }
