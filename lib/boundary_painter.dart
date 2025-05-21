@@ -24,5 +24,7 @@ class BoundaryPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
+  bool shouldRepaint(covariant BoundaryPainter oldDelegate) {
+    return oldDelegate.isFaceInBoundary != isFaceInBoundary;
+  }
 }
