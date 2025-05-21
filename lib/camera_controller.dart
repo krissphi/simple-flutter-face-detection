@@ -1,10 +1,12 @@
-import 'package:camera_widget/face_detection_service.dart';
-import 'package:camera_widget/image_preview.dart';
+import 'dart:io';
+
+import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:camera/camera.dart';
+import 'package:camera_widget/face_detection_service.dart';
+import 'package:camera_widget/image_preview_widget.dart';
 import 'camera_service.dart';
 import 'permission_manager.dart';
 
@@ -14,22 +16,17 @@ class CameraPageController extends ChangeNotifier {
   final FaceDetectionService faceDetectionService;
 
   bool _isLoading = false;
-  bool get isLoading => _isLoading;
-
   bool _isInitialized = false;
-  bool get isInitialized => _isInitialized;
-
   bool _isCameraGranted = false;
-  bool get isCameraGranted => _isCameraGranted;
-
   bool _isAutoCapture = false;
+  bool _isBoundaryEnabled = false;
+
+  bool get isLoading => _isLoading;
+  bool get isInitialized => _isInitialized;
+  bool get isCameraGranted => _isCameraGranted;
   bool get isAutoCapture => _isAutoCapture;
-
-  bool _isAutoCaptureInBoundaryShape = false;
-  bool get isAutoCaptureInBoundaryShape => _isAutoCaptureInBoundaryShape;
-
+  bool get isBoundaryEnabled => _isBoundaryEnabled;
   CameraController? get cameraController => cameraService.cameraController;
-
   List<Face> get faces => faceDetectionService.faces;
 
   CameraPageController({
@@ -38,32 +35,21 @@ class CameraPageController extends ChangeNotifier {
     required this.faceDetectionService,
   });
 
+  bool isSupportCamera() => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
+
   Future<void> onTakePhotoPressed(BuildContext context) async {
-    bool isMounted = context.mounted;
     await cameraService.cameraController?.stopImageStream();
     final xFile = await cameraService.capturePhoto();
 
-    if (!isMounted || !context.mounted) {
-      debugPrint('Context is not mounted, skipping navigation');
-      if (_isCameraGranted) {
-        await cameraWithMLKit();
-      }
-      return;
-    }
-
-    if (xFile != null && xFile.path.isNotEmpty) {
+    if (context.mounted && xFile != null && xFile.path.isNotEmpty) {
       await Navigator.of(context).push(
         MaterialPageRoute(
           builder: (context) => ImagePreview(imagePath: xFile.path),
         ),
       );
-      if (_isCameraGranted && context.mounted) {
-        await cameraWithMLKit();
-      }
-    } else {
-      if (_isCameraGranted && context.mounted) {
-        await cameraWithMLKit();
-      }
+    }
+    if (_isCameraGranted && context.mounted) {
+      await cameraWithMLKit();
     }
   }
 
@@ -73,123 +59,78 @@ class CameraPageController extends ChangeNotifier {
       _isAutoCapture,
       context,
       (BuildContext? _) => onTakePhotoPressed(context),
-      _isAutoCaptureInBoundaryShape,
+      _isBoundaryEnabled,
     );
     notifyListeners();
   }
 
-  void toggleAutoCaptureInBoundaryShape() {
-    _isAutoCaptureInBoundaryShape = !_isAutoCaptureInBoundaryShape;
+  void toggleBoundary(BuildContext context) {
+    _isBoundaryEnabled = !_isBoundaryEnabled;
     faceDetectionService.setAutoCapture(
       _isAutoCapture,
-      faceDetectionService.context,
-      faceDetectionService.onAutoCapture,
-      _isAutoCaptureInBoundaryShape,
+      context,
+      (BuildContext? _) => onTakePhotoPressed(context),
+      _isBoundaryEnabled,
     );
     notifyListeners();
   }
 
   Future<bool> initialize() async {
-    try {
-      _isLoading = true;
-      notifyListeners();
+    _isLoading = true;
+    notifyListeners();
 
-      if (cameraService.cameraController != null) {
-        await cameraService.cameraController?.dispose();
-        cameraService.resetCameraController();
-      }
+    await cameraService.cameraController?.dispose();
+    cameraService.resetCameraController();
 
-      final granted = await permissionManager.requestCameraPermission();
-
-      _isCameraGranted = granted;
-      debugPrint('initialize - Permission granted: $granted');
-
-      if (!granted) {
-        _isInitialized = false;
-        _isLoading = false;
-        notifyListeners();
-        return false;
-      }
-
-      await cameraWithMLKit();
-      _isLoading = false;
-      notifyListeners();
-      return _isInitialized;
-    } catch (e) {
-      debugPrint('Error initializing camera controller: $e');
+    _isCameraGranted = await permissionManager.requestCameraPermission();
+    if (!_isCameraGranted) {
       _isInitialized = false;
-      _isCameraGranted = false;
       _isLoading = false;
       notifyListeners();
       return false;
     }
+
+    await cameraWithMLKit();
+    _isLoading = false;
+    notifyListeners();
+    return _isInitialized;
   }
 
   Future<void> checkPermissionAndInitialize() async {
-    try {
-      final status = await Permission.camera.status;
-      _isCameraGranted = status.isGranted;
-      debugPrint(
-        'checkPermissionAndInitialize - isCameraGranted: $_isCameraGranted',
-      );
-
-      if (_isCameraGranted) {
-        await cameraWithMLKit();
-        notifyListeners();
-      } else {
-        _isInitialized = false;
-        notifyListeners();
-      }
-    } catch (e) {
-      debugPrint('Error checking permission and initializing: $e');
+    _isCameraGranted = await Permission.camera.status.isGranted;
+    if (_isCameraGranted) {
+      await cameraWithMLKit();
+    } else {
       _isInitialized = false;
-      _isCameraGranted = false;
-      _isLoading = false;
-      notifyListeners();
     }
+    notifyListeners();
   }
 
   Future<void> cameraWithMLKit() async {
-    try {
-      _isInitialized = await cameraService.initialize(
-        onFrameAvailable: (inputImage) async {
-          await faceDetectionService.processImage(inputImage);
-          _isLoading = false;
-          notifyListeners();
-        },
-      );
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error in cameraWithMLKit: $e');
-      _isInitialized = false;
-      _isLoading = false;
-      notifyListeners();
-    }
+    _isInitialized = await cameraService.initialize(
+      onFrameAvailable: (inputImage) async {
+        await faceDetectionService.processImage(inputImage);
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
+    notifyListeners();
   }
 
   Future<void> pauseCamera() async {
-    try {
-      debugPrint('Pausing camera');
-      await cameraService.cameraController?.stopImageStream();
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error pausing camera: $e');
-    }
+    await cameraService.cameraController?.stopImageStream();
+    notifyListeners();
   }
 
   Future<void> disposeCamera() async {
-    try {
-      await cameraService.cameraController?.stopImageStream();
-      await cameraService.cameraController?.dispose();
-      cameraService.resetCameraController();
-      _isInitialized = false;
-      _isAutoCapture = false;
-      _isAutoCaptureInBoundaryShape = false;
-      faceDetectionService.setAutoCapture(false, null, null, false);
-      notifyListeners();
-    } catch (e) {
-      debugPrint('Error disposing camera: $e');
-    }
+    await cameraService.cameraController?.stopImageStream();
+    await cameraService.cameraController?.dispose();
+    cameraService.resetCameraController();
+    _isInitialized = false;
+    _isAutoCapture = false;
+    _isBoundaryEnabled = false;
+    faceDetectionService.setAutoCapture(false, null, null, false);
+    notifyListeners();
   }
 
   @override

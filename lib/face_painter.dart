@@ -8,7 +8,7 @@ class FacePainter extends CustomPainter {
   final Size widgetSize;
   final CameraLensDirection lensDirection;
 
-  FacePainter(this.faces, this.imageSize, this.widgetSize, this.lensDirection);
+  FacePainter({required this.faces, required this.imageSize, required this.widgetSize, required this.lensDirection});
 
   @override
   void paint(Canvas canvas, Size size) {

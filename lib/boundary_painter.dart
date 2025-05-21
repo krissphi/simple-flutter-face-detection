@@ -14,13 +14,11 @@ class BoundaryPainter extends CustomPainter {
           ..style = PaintingStyle.stroke
           ..strokeWidth = 4.0;
 
-    // Define oval dimensions
     final ovalWidth = widgetSize.width * 0.8;
     final ovalHeight = widgetSize.height * 0.45;
     final left = (widgetSize.width - ovalWidth) / 2;
     final top = (widgetSize.height - ovalHeight) / 2;
 
-    // Draw oval
     final rect = Rect.fromLTWH(left, top, ovalWidth, ovalHeight);
     canvas.drawOval(rect, paint);
   }

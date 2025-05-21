@@ -1,15 +1,13 @@
-import 'dart:io';
-
 import 'package:camera_widget/boundary_painter.dart';
-import 'package:camera_widget/camera_preview.dart';
+import 'package:camera_widget/camera_feature_widget.dart';
+import 'package:camera_widget/camera_preview_widget.dart';
 import 'package:camera_widget/face_detection_service.dart';
-import 'package:camera_widget/face_painter_widget.dart';
-import 'package:camera_widget/image_preview.dart';
-import 'package:flutter/foundation.dart';
+import 'package:camera_widget/face_painter.dart';
+import 'package:camera_widget/face_detection_status_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'camera_controller.dart';
-import 'camera_placeholder.dart';
+import 'camera_placeholder_widget.dart';
 
 class CameraPage extends StatefulWidget {
   const CameraPage({super.key});
@@ -63,13 +61,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   }
 
   Widget _buildWidget(CameraPageController controller) {
-    debugPrint(
-      controller.isAutoCapture
-          ? 'Auto capture in 3 seconds enabled'
-          : 'Auto capture in 3 seconds disabled',
-    );
-
-    if (!_isCameraSupported()) {
+    if (!controller.isSupportCamera()) {
       return const Center(child: Text("Camera not supported on this platform"));
     }
 
@@ -84,10 +76,6 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     }
 
     return _buildCameraPreview();
-  }
-
-  bool _isCameraSupported() {
-    return kIsWeb ? false : (Platform.isAndroid || Platform.isIOS);
   }
 
   Widget _buildCameraPreview() {
@@ -105,14 +93,16 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
               child: CameraPreviewWidget(cameraController: cameraController),
             ),
             RepaintBoundary(
-              child: FacePainterWidget(
-                faces: controller.faces,
-                imageSize: cameraSize,
-                widgetSize: Size(constraints.maxWidth, constraints.maxHeight),
-                lensDirection: cameraController.description.lensDirection,
+              child: CustomPaint(
+                painter: FacePainter(
+                  faces: controller.faces,
+                  imageSize: cameraSize,
+                  widgetSize: Size(constraints.maxWidth, constraints.maxHeight),
+                  lensDirection: cameraController.description.lensDirection,
+                ),
               ),
             ),
-            if (controller.isAutoCaptureInBoundaryShape)
+            if (controller.isBoundaryEnabled)
               Positioned(
                 child: CustomPaint(
                   painter: BoundaryPainter(
@@ -132,117 +122,24 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
               top: 16,
               left: 0,
               right: 0,
-              child: RepaintBoundary(child: _buildAutoCaptureText()),
+              child: RepaintBoundary(
+                child: FaceDetectionStatusWidget(controller: controller),
+              ),
             ),
             Positioned(
               bottom: 0,
               left: 0,
               right: 0,
-              child: RepaintBoundary(child: _buildCameraFeature()),
+              child: RepaintBoundary(
+                child: CameraFeatureWidget(
+                  controller: controller,
+                  context: context,
+                ),
+              ),
             ),
           ],
         );
       },
-    );
-  }
-
-  Widget _buildAutoCaptureText() {
-    return Consumer<FaceDetectionService>(
-      builder: (context, faceDetectionService, child) {
-        debugPrint('Countdown: ${faceDetectionService.countdownSeconds}');
-        debugPrint('Faces: ${faceDetectionService.faces}');
-        debugPrint('Faces detected: ${faceDetectionService.faces.isNotEmpty}');
-        debugPrint(
-          'Face in boundary: ${faceDetectionService.isFaceInBoundary}',
-        );
-        return Column(
-          children: [
-            // Always show face detection status
-            Text(
-              faceDetectionService.faces.isNotEmpty
-                  ? 'Face Detected'
-                  : 'Face Not Detected',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                backgroundColor: Colors.black54,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            // Show boundary status when boundary mode is enabled
-            if (controller.isAutoCaptureInBoundaryShape &&
-                faceDetectionService.faces.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  faceDetectionService.isFaceInBoundary == true
-                      ? 'Inside Boundary'
-                      : 'Outside Boundary',
-                  style: const TextStyle(
-                    color: Colors.yellow,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    backgroundColor: Colors.black54,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            // Show countdown when auto-capture is active
-            if (controller.isAutoCapture &&
-                faceDetectionService.countdownSeconds != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Don\'t Move: ${faceDetectionService.countdownSeconds}s',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    backgroundColor: Colors.black54,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildCameraFeature() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.white,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              ElevatedButton(
-                onPressed: () => controller.toggleAutoCapture(context),
-                child: Icon(
-                  controller.isAutoCapture ? Icons.timer : Icons.timer_off,
-                ),
-              ),
-              ElevatedButton(
-                onPressed: () => controller.onTakePhotoPressed(context),
-                child: const Icon(Icons.camera),
-              ),
-              ElevatedButton(
-                onPressed: () => controller.toggleAutoCaptureInBoundaryShape(),
-                child: Icon(
-                  controller.isAutoCaptureInBoundaryShape
-                      ? Icons.grid_on_outlined
-                      : Icons.grid_on,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
     );
   }
 }
