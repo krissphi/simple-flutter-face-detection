@@ -78,7 +78,7 @@ class CameraPageController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void toggleAutoCaptureInBoundaryShape() { // Updated method
+  void toggleAutoCaptureInBoundaryShape() {
     _isAutoCaptureInBoundaryShape = !_isAutoCaptureInBoundaryShape;
     faceDetectionService.setAutoCapture(
       _isAutoCapture,

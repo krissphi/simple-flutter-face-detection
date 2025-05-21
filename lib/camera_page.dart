@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:camera_widget/boundary_painter.dart';
 import 'package:camera_widget/camera_preview.dart';
 import 'package:camera_widget/face_detection_service.dart';
 import 'package:camera_widget/face_painter_widget.dart';
@@ -111,6 +112,22 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                 lensDirection: cameraController.description.lensDirection,
               ),
             ),
+            if (controller.isAutoCaptureInBoundaryShape)
+              Positioned(
+                child: CustomPaint(
+                  painter: BoundaryPainter(
+                    widgetSize: Size(
+                      constraints.maxWidth,
+                      constraints.maxHeight,
+                    ),
+                    isFaceInBoundary:
+                        Provider.of<FaceDetectionService>(
+                          context,
+                        ).isFaceInBoundary,
+                  ),
+                  size: Size(constraints.maxWidth, constraints.maxHeight),
+                ),
+              ),
             Positioned(
               top: 16,
               left: 0,
@@ -132,18 +149,19 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   Widget _buildAutoCaptureText() {
     return Consumer<FaceDetectionService>(
       builder: (context, faceDetectionService, child) {
-        debugPrint(faceDetectionService.countdownSeconds.toString());
-        debugPrint(faceDetectionService.faces.toString());
-        debugPrint(faceDetectionService.faces.isNotEmpty.toString());
-        if (!controller.isAutoCapture) {
-          return const SizedBox.shrink();
-        }
+        debugPrint('Countdown: ${faceDetectionService.countdownSeconds}');
+        debugPrint('Faces: ${faceDetectionService.faces}');
+        debugPrint('Faces detected: ${faceDetectionService.faces.isNotEmpty}');
+        debugPrint(
+          'Face in boundary: ${faceDetectionService.isFaceInBoundary}',
+        );
         return Column(
           children: [
+            // Always show face detection status
             Text(
               faceDetectionService.faces.isNotEmpty
-                  ? 'Wajah Terdeteksi'
-                  : 'Wajah Tidak Terdeteksi',
+                  ? 'Face Detected'
+                  : 'Face Not Detected',
               style: const TextStyle(
                 color: Colors.white,
                 fontSize: 20,
@@ -152,11 +170,31 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
               ),
               textAlign: TextAlign.center,
             ),
-            if (faceDetectionService.countdownSeconds != null)
+            // Show boundary status when boundary mode is enabled
+            if (controller.isAutoCaptureInBoundaryShape &&
+                faceDetectionService.faces.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  'Jangan Bergerak: ${faceDetectionService.countdownSeconds}s',
+                  faceDetectionService.isFaceInBoundary == true
+                      ? 'Inside Boundary'
+                      : 'Outside Boundary',
+                  style: const TextStyle(
+                    color: Colors.yellow,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    backgroundColor: Colors.black54,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            // Show countdown when auto-capture is active
+            if (controller.isAutoCapture &&
+                faceDetectionService.countdownSeconds != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Don\'t Move: ${faceDetectionService.countdownSeconds}s',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -196,7 +234,9 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
               ElevatedButton(
                 onPressed: () => controller.toggleAutoCaptureInBoundaryShape(),
                 child: Icon(
-                  controller.isAutoCaptureInBoundaryShape ? Icons.square_foot_outlined : Icons.square_foot,
+                  controller.isAutoCaptureInBoundaryShape
+                      ? Icons.grid_on_outlined
+                      : Icons.grid_on,
                 ),
               ),
             ],

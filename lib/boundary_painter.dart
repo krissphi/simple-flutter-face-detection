@@ -2,32 +2,29 @@ import 'package:flutter/material.dart';
 
 class BoundaryPainter extends CustomPainter {
   final Size widgetSize;
+  final bool? isFaceInBoundary;
 
-  BoundaryPainter({required this.widgetSize});
+  BoundaryPainter({required this.widgetSize, this.isFaceInBoundary});
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.green.withOpacity(0.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.0;
+    final paint =
+        Paint()
+          ..color = (isFaceInBoundary == true ? Colors.green : Colors.red)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4.0;
 
-    // Define boundary (60% of widget size, centered)
-    final boundaryWidth = widgetSize.width * 0.6;
-    final boundaryHeight = widgetSize.height * 0.6;
-    final boundaryLeft = (widgetSize.width - boundaryWidth) / 2;
-    final boundaryTop = (widgetSize.height - boundaryHeight) / 2;
+    // Define oval dimensions
+    final ovalWidth = widgetSize.width * 0.8;
+    final ovalHeight = widgetSize.height * 0.45;
+    final left = (widgetSize.width - ovalWidth) / 2;
+    final top = (widgetSize.height - ovalHeight) / 2;
 
-    final rect = Rect.fromLTWH(
-      boundaryLeft,
-      boundaryTop,
-      boundaryWidth,
-      boundaryHeight,
-    );
-
-    canvas.drawRect(rect, paint);
+    // Draw oval
+    final rect = Rect.fromLTWH(left, top, ovalWidth, ovalHeight);
+    canvas.drawOval(rect, paint);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }

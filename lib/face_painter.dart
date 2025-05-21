@@ -14,7 +14,7 @@ class FacePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint =
         Paint()
-          ..color = Colors.red
+          ..color = Colors.blue
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2;
 
