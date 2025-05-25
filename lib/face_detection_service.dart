@@ -106,13 +106,16 @@ class FaceDetectionService with ChangeNotifier {
 
   void _checkFaceStability(List<Face> newFaces, DateTime now, Size imageSize) {
     if (newFaces.isEmpty) {
-      _resetAutoCapture();
+      if (_countdownSeconds != null || _isFaceInBoundary == true) {
+        _resetAutoCapture();
+      }
       return;
     }
 
     bool allFacesStable = true;
-    bool allFacesInBoundary = true;
+    bool allFacesInBoundary = true; 
     Map<int, Offset> currentFacePositions = {};
+    bool needsReset = false; // Introduced flag, initialized to false
 
     for (var face in newFaces) {
       if (face.trackingId == null) continue;
@@ -124,55 +127,78 @@ class FaceDetectionService with ChangeNotifier {
       );
       currentFacePositions[face.trackingId!] = newCenter;
 
-      if (_isBoundaryEnabled && !_checkFaceInBoundary(face, imageSize)) {
-        allFacesInBoundary = false;
-        _resetAutoCapture();
-        break;
+      // Boundary Check
+      if (_isBoundaryEnabled) {
+        if (!_checkFaceInBoundary(face, imageSize)) {
+          allFacesInBoundary = false; // A face is out of bounds
+          needsReset = true;          // Signal that a reset might be needed
+          break;                      // Exit loop: if one face is out, allFacesInBoundary is false
+        }
       }
 
+      // Stability Check (only proceeds if face is within boundary or boundary check is off)
       if (_lastFacePositions.containsKey(face.trackingId)) {
         final oldCenter = _lastFacePositions[face.trackingId]!;
         final distance = (oldCenter - newCenter).distance;
         final threshold =
             sqrt(pow(newBox.width, 2) + pow(newBox.height, 2)) * 0.1;
-
         if (distance > threshold) {
-          allFacesStable = false;
-          _resetAutoCapture();
+          allFacesStable = false; // A face is unstable
+          needsReset = true;      // Signal that a reset might be needed
         }
       } else {
+        // New face detected, considered unstable for this frame
         allFacesStable = false;
-        _resetAutoCapture();
+        needsReset = true; // Signal that a reset might be needed
       }
     }
 
-    _lastFacePositions = currentFacePositions;
+    // Conditional Reset Call:
+    // If needsReset is true (due to instability or out-of-bounds) AND
+    // there was an active countdown or the face was marked in bounds (as true).
+    if (needsReset && (_countdownSeconds != null || _isFaceInBoundary == true)) {
+      _resetAutoCapture();
+    }
 
+    // Logic for countdown or further reset:
     if (allFacesStable && allFacesInBoundary) {
-      _faceStableStartTime ??= now;
+      // Only update _lastFacePositions if all faces are stable AND within boundary
+      _lastFacePositions = currentFacePositions; 
+      _faceStableStartTime ??= now; // Start or continue stability timer
+
       final elapsedSeconds = now.difference(_faceStableStartTime!).inSeconds;
       final remainingSeconds = 3 - elapsedSeconds;
 
       if (remainingSeconds <= 0 && _context != null) {
         _onAutoCapture?.call(_context!);
-        _resetAutoCapture();
+        _resetAutoCapture(); // Reset after successful capture
       } else if (remainingSeconds != _countdownSeconds) {
         _countdownSeconds = remainingSeconds;
-        _isFaceInBoundary = true;
+        _isFaceInBoundary = true; // Mark face as in boundary for countdown UI
         notifyListeners();
       }
     } else {
-      _resetAutoCapture();
+      // This 'else' block handles cases where faces are not stable OR not in boundary.
+      // If 'needsReset' was false (e.g., very first frame, no movement yet to trigger instability,
+      // but all conditions for countdown are not met) AND there's an existing countdown state,
+      // then clear that state by calling _resetAutoCapture.
+      if (!needsReset && (_countdownSeconds != null || _isFaceInBoundary == true)) {
+        _resetAutoCapture();
+      }
     }
   }
 
   void _resetAutoCapture() {
-    if (_countdownSeconds != null || _isFaceInBoundary != false) {
-      _countdownSeconds = null;
-      _isFaceInBoundary = false;
+    // Determine if a UI update (notification) is needed BEFORE resetting state.
+    bool shouldNotify = _countdownSeconds != null || _isFaceInBoundary == true;
+
+    _countdownSeconds = null;
+    _isFaceInBoundary = false;     // Explicitly set to false.
+    _faceStableStartTime = null; // Reset the stable start time.
+
+    if (shouldNotify) {
       notifyListeners();
     }
-    _faceStableStartTime = null;
   }
 
   bool isFacePositionSimilar(Face oldFace, Face newFace) {
